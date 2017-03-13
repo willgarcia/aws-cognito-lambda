@@ -1,0 +1,16 @@
+{
+  "name": "cognitocustomauth",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "jsonwebtoken": "^7.3.0",
+    "jwk-to-pem": "^1.2.6",
+    "request": "^2.81.0"
+  }
+}
