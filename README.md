@@ -15,5 +15,5 @@ Every call to the API Gateway endpoints configured with the authorizer will requ
 
 ## Documentation
 
-* [API Security] https://servicesmadesimpler.govnet.qld.gov.au/wiki/pages/viewpage.action?pageId=26970091
+* [API Security](https://servicesmadesimpler.govnet.qld.gov.au/wiki/pages/viewpage.action?pageId=26970091)
 * [Use Amazon API Gateway Custom Authorizers](http://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-integrate-with-cognito.html)
