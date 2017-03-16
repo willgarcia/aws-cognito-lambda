@@ -31,7 +31,7 @@ exports.handler = function(event, context) {
               }
               ValidateToken(pems, event, context);
           } else {
-              context.fail("Cognito custom authorizer - error:", error);
+              context.fail("Cognito custom authorizer - error:", error, body);
           }
       });
     } else {
