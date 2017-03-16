@@ -33,7 +33,7 @@ exports.handler = function(event, context) {
           } else {
               var errorMessage = 'Cognito custom authorizer - HTTP status code:' + response.statusCode + "\n"
                                  'Cognito custom authorizer - JWKS URI:', iss + '/.well-known/jwks.json'              ;
-              context.fail('Cognito custom authorizer - error:', errorMessage);
+              console.fail('Cognito custom authorizer - error:', errorMessage);
           }
       });
     } else {
