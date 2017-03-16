@@ -8,7 +8,7 @@ var iss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId;
 var pems;
 
 console.log('Cognito custom authorizer - starting validation');
-console.log('Cognito custom authorizer - JWKS URI:', iss);
+console.log('Cognito custom authorizer - JWKS URI:', iss + '/.well-known/jwks.json');
 
 exports.handler = function(event, context) {
     if (!pems) {
@@ -31,7 +31,9 @@ exports.handler = function(event, context) {
               }
               ValidateToken(pems, event, context);
           } else {
-              context.fail("Cognito custom authorizer - error:", error, body);
+              var errorMessage = 'Cognito custom authorizer - HTTP status code:' + response.statusCode + "\n"
+                                 'Cognito custom authorizer - JWKS URI:', iss + '/.well-known/jwks.json'              ;
+              context.fail('Cognito custom authorizer - error:', errorMessage);
           }
       });
     } else {
@@ -45,34 +47,30 @@ function ValidateToken(pems, event, context) {
     var decodedJwt = jwt.decode(token, {complete: true});
 
     if (!decodedJwt) {
-        console.log("Cognito custom authorizer - Not a valid JWT token");
-        context.fail("Cognito custom authorizer - Unauthorized");
+        console.fail('Cognito custom authorizer - Not a valid JWT token');
         return;
     }
 
     if (decodedJwt.payload.iss != iss) {
-        console.log("Cognito custom authorizer - invalid issuer");
-        context.fail("Cognito custom authorizer - Unauthorized");
+        console.fail('Cognito custom authorizer - invalid issuer');
         return;
     }
 
     if (decodedJwt.payload.token_use != 'access') {
-        console.log("Cognito custom authorizer - Not an access token");
-        context.fail("Cognito custom authorizer - Unauthorized");
+        console.fail('Cognito custom authorizer - Not an access token');
         return;
     }
 
     var kid = decodedJwt.header.kid;
     var pem = pems[kid];
     if (!pem) {
-        console.log('Invalid access token');
-        context.fail("Cognito custom authorizer - Unauthorized");
+        console.fail('Invalid access token');
         return;
     }
 
     jwt.verify(token, pem, { issuer: iss }, function(err, payload) {
       if(err) {
-        context.fail("Cognito custom authorizer - Unauthorized:", err);
+        context.fail('Cognito custom authorizer - Unauthorized:', err);
       } else {
         var principalId = payload.sub;
         var apiOptions = {};
