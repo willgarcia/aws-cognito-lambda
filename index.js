@@ -46,8 +46,11 @@ function ValidateToken(pems, event, context) {
     var token = event.authorizationToken;
     var decodedJwt = jwt.decode(token, {complete: true});
 
+
+
+
     if (!decodedJwt) {
-        context.fail('Cognito custom authorizer - Not a valid JWT token');
+        context.fail('Cognito custom authorizer - Not a valid JWT token: ' + token + ";;;;;;;;;;;" + decodedJwt);
         return;
     }
 
