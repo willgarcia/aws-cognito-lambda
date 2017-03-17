@@ -33,7 +33,7 @@ exports.handler = function(event, context) {
           } else {
               var errorMessage = 'Cognito custom authorizer - HTTP status code:' + response.statusCode + "\n"
                                  'Cognito custom authorizer - JWKS URI:', iss + '/.well-known/jwks.json'              ;
-              console.fail('Cognito custom authorizer - error:', errorMessage);
+              context.fail('Cognito custom authorizer - error:', errorMessage);
           }
       });
     } else {
@@ -47,24 +47,24 @@ function ValidateToken(pems, event, context) {
     var decodedJwt = jwt.decode(token, {complete: true});
 
     if (!decodedJwt) {
-        console.fail('Cognito custom authorizer - Not a valid JWT token');
+        context.fail('Cognito custom authorizer - Not a valid JWT token');
         return;
     }
 
     if (decodedJwt.payload.iss != iss) {
-        console.fail('Cognito custom authorizer - invalid issuer');
+        context.fail('Cognito custom authorizer - invalid issuer');
         return;
     }
 
     if (decodedJwt.payload.token_use != 'access') {
-        console.fail('Cognito custom authorizer - Not an access token');
+        context.fail('Cognito custom authorizer - Not an access token');
         return;
     }
 
     var kid = decodedJwt.header.kid;
     var pem = pems[kid];
     if (!pem) {
-        console.fail('Invalid access token');
+        context.fail('Invalid access token');
         return;
     }
 
