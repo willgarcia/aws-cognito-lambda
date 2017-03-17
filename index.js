@@ -1,93 +1,184 @@
+console.log('Loading CustomLambda-Authorizer');
+
 var jwt = require('jsonwebtoken');
 var request = require('request');
 var jwkToPem = require('jwk-to-pem');
+var request = require('request');
 
-var userPoolId = process.env.AWS_COGNITO_USERPOOL_ID;
-var region = process.env.AWS_COGNITO_USERPOOL_REGION;
-var iss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId;
+var userPoolId = 'ap-southeast-2_LYkcvxw66';
+var region = 'ap-southeast-2';
+var congnitoiss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId; //To be changed, should be read from a property/config file
+var auth0iss = 'https://uat-qld-gov.au.auth0.com/'; //To be changed, should be read from a property/config file
 var pems;
 
-console.log('Cognito custom authorizer - starting validation');
-console.log('Cognito custom authorizer - JWKS URI:', iss + '/.well-known/jwks.json');
-
 exports.handler = function(event, context) {
-    if (!pems) {
-      request({
-         url: iss + '/.well-known/jwks.json',
-         json: true
-       }, function (error, response, body) {
-          if (!error && response.statusCode === 200) {
-              pems = {};
-              var keys = body['keys'];
-              for(var i = 0; i < keys.length; i++) {
-
-                  var key_id = keys[i].kid;
-                  var modulus = keys[i].n;
-                  var exponent = keys[i].e;
-                  var key_type = keys[i].kty;
-                  var jwk = { kty: key_type, n: modulus, e: exponent};
-                  var pem = jwkToPem(jwk);
-                  pems[key_id] = pem;
-              }
-              ValidateToken(pems, event, context);
-          } else {
-              var errorMessage = 'Cognito custom authorizer - HTTP status code:' + response.statusCode + "\n"
-                                 'Cognito custom authorizer - JWKS URI:', iss + '/.well-known/jwks.json'              ;
-              context.fail('Cognito custom authorizer - error:', errorMessage);
-          }
-      });
-    } else {
-        ValidateToken(pems, event, context);
-    };
-};
-
-function ValidateToken(pems, event, context) {
 
     var token = event.authorizationToken;
     var decodedJwt = jwt.decode(token, {complete: true});
-
-
-
-
+    //Fail if the token is not jwt
     if (!decodedJwt) {
-        context.fail('Cognito custom authorizer - Not a valid JWT token: ' + token + ";;;;;;;;;;;" + decodedJwt);
+        console.log("Not a valid JWT token");
+        context.fail("Unauthorized:Not a valid JWT token" + token);
         return;
     }
 
-    if (decodedJwt.payload.iss != iss) {
-        context.fail('Cognito custom authorizer - invalid issuer');
+    //Check if the JWT token is issues by Cognito or Auth0
+    if (decodedJwt.payload.iss == congnitoiss) {
+        //Download PEM for your UserPool if not already downloaded
+        if (!pems) {
+            //Download the JWKs and save it as PEM
+            request({
+               url: congnitoiss + '/.well-known/jwks.json',
+               json: true
+             }, function (error, response, body) {
+                if (!error && response.statusCode === 200) {
+                    pems = {};
+                    var keys = body['keys'];
+                    for(var i = 0; i < keys.length; i++) {
+                        //Convert each key to PEM
+                        var key_id = keys[i].kid;
+                        var modulus = keys[i].n;
+                        var exponent = keys[i].e;
+                        var key_type = keys[i].kty;
+                        var jwk = { kty: key_type, n: modulus, e: exponent};
+                        var pem = jwkToPem(jwk);
+                        pems[key_id] = pem;
+                    }
+                    //Now continue with validating the token
+                    var arn = event.methodArn;
+                    ValidateCognitoToken(pems, token, arn, context);
+                } else {
+                    //Unable to download JWKs, fail the call
+                    console.log("Unable to download JWKs, fail the call");
+                    context.fail("error");
+                }
+            });
+            } else {
+                //PEMs are already downloaded, continue with validating the token
+                var arn = event.methodArn;
+                ValidateCognitoToken(pems, token, arn, context);
+            };
+
+    } else if (decodedJwt.payload.iss == auth0iss){
+        //To be changed: Should be read from a property file
+        const url = "https://uat-qld-gov.au.auth0.com/tokeninfo";
+
+        //need to call Auth0 userinfo endpoint to validate jwt
+        //see https://auth0.com/docs/api/authentication#user-profile
+        request.post(
+            {
+                url: url,
+                headers: { 'Content-Type': 'application/json' },
+                body: '{"id_token":"' + token + '"}'
+            },
+            function (error, response, body) {
+                if (error) {
+                    response.status(401);
+                    context.fail(error);
+                }
+                else {
+                    var arn = event.methodArn;
+                    //user is valid, assign properties from the decoded token
+                    var principalId = decodedJwt.payload.sub;
+                    //Get AWS AccountId and API Options
+                    var apiOptions = {};
+                    var tmp = arn.split(':');
+                    var apiGatewayArnTmp = tmp[5].split('/');
+                    var awsAccountId = tmp[4];
+                    apiOptions.region = tmp[3];
+                    apiOptions.restApiId = apiGatewayArnTmp[0];
+                    apiOptions.stage = apiGatewayArnTmp[1];
+                    var method = apiGatewayArnTmp[2];
+                    var resource = '/'; // root resource
+                    if (apiGatewayArnTmp[3]) {
+                        resource += apiGatewayArnTmp[3];
+                    }
+                    var policy = new AuthPolicy(principalId, awsAccountId, apiOptions);
+                    policy.allowAllMethods();
+                    context.succeed(policy.build());
+                }
+            }
+        );
+    } else {
+        console.log("invalid issuer");
+        context.fail("Unauthorized:Invalid issuer");
         return;
     }
+};
 
+/*
+ * Function is responsible to parse the token issued by cognito and do checks like access token,
+ * should be issued by correct userpool, expiry date etc
+ */
+function ValidateCognitoToken(pems, token, arn, context) {
+
+    var decodedJwt = jwt.decode(token, {complete: true});
+
+    //Reject the jwt if it's not an 'Access Token'
     if (decodedJwt.payload.token_use != 'access') {
-        context.fail('Cognito custom authorizer - Not an access token');
+        console.log("Not an access token");
+        context.fail("Unauthorized:Not an access token");
         return;
     }
 
+    //Get the kid from the token and retrieve corresponding PEM
     var kid = decodedJwt.header.kid;
+    console.log("Got kid : " +kid);
     var pem = pems[kid];
     if (!pem) {
-        context.fail('Invalid access token');
+        console.log('Invalid access token');
+        context.fail("Unauthorized:Invalid access token");
         return;
     }
 
-    jwt.verify(token, pem, { issuer: iss }, function(err, payload) {
-      if(err) {
-        context.fail('Cognito custom authorizer - Unauthorized:', err);
-      } else {
-        var principalId = payload.sub;
+    //Workaround for ServiceNow (agree..its not a brilliant solution
+    //but currently because of ServiceNow limitations, we don't have a choice)
+    if(decodedJwt.payload.username=='servicenow_user_temp'){
+        var principalId = decodedJwt.payload.sub;
+        //Get AWS AccountId and API Options
         var apiOptions = {};
-        var tmp = event.methodArn.split(':');
+        var tmp = arn.split(':');
         var apiGatewayArnTmp = tmp[5].split('/');
         var awsAccountId = tmp[4];
         apiOptions.region = tmp[3];
         apiOptions.restApiId = apiGatewayArnTmp[0];
         apiOptions.stage = apiGatewayArnTmp[1];
         var method = apiGatewayArnTmp[2];
-        var resource = '/';
+        var resource = '/'; // root resource
         if (apiGatewayArnTmp[3]) {
             resource += apiGatewayArnTmp[3];
         }
+        var policy = new AuthPolicy(principalId, awsAccountId, apiOptions);
+        policy.allowAllMethods();
+        context.succeed(policy.build());
+        return;
+    }
+
+    //Verify the signature of the JWT token to ensure it's really coming from your User Pool
+
+    jwt.verify(token, pem, { issuer: congnitoiss }, function(err, payload) {
+      if(err) {
+        context.fail("Unauthorized");
+      } else {
+        //Valid token. Generate the API Gateway policy for the user
+        //Always generate the policy on value of 'sub' claim and not for 'username' because username is reassignable
+        //sub is UUID for a user which is never reassigned to another user.
+        var principalId = payload.sub;
+
+        //Get AWS AccountId and API Options
+        var apiOptions = {};
+        var tmp = arn.split(':');
+        var apiGatewayArnTmp = tmp[5].split('/');
+        var awsAccountId = tmp[4];
+        apiOptions.region = tmp[3];
+        apiOptions.restApiId = apiGatewayArnTmp[0];
+        apiOptions.stage = apiGatewayArnTmp[1];
+        var method = apiGatewayArnTmp[2];
+        var resource = '/'; // root resource
+        if (apiGatewayArnTmp[3]) {
+            resource += apiGatewayArnTmp[3];
+        }
+
         var policy = new AuthPolicy(principalId, awsAccountId, apiOptions);
         policy.allowAllMethods();
         context.succeed(policy.build());
