@@ -4,9 +4,8 @@ var jwt = require('jsonwebtoken');
 var request = require('request');
 var jwkToPem = require('jwk-to-pem');
 var request = require('request');
-
-var userPoolId = 'ap-southeast-2_LYkcvxw66';
-var region = 'ap-southeast-2';
+var userPoolId = process.env.AWS_COGNITO_USERPOOL_ID;
+var region = process.env.AWS_COGNITO_USERPOOL_REGION;
 var congnitoiss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId; //To be changed, should be read from a property/config file
 var auth0iss = 'https://uat-qld-gov.au.auth0.com/'; //To be changed, should be read from a property/config file
 var pems;
