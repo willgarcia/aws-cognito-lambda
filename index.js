@@ -6,13 +6,14 @@ var jwkToPem = require('jwk-to-pem');
 var request = require('request');
 var userPoolId = process.env.AWS_COGNITO_USERPOOL_ID;
 var region = process.env.AWS_COGNITO_USERPOOL_REGION;
-var congnitoiss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId; //To be changed, should be read from a property/config file
-var auth0iss = 'https://uat-qld-gov.au.auth0.com/'; //To be changed, should be read from a property/config file
+var congnitoiss = 'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId;
+var auth0iss = process.env.AUTH0_ISSUER;
 var pems;
 
 exports.handler = function(event, context) {
 
     console.log(event);
+
     if (!event.type && event.type != "TOKEN") {
         console.log("Proxying call to API Gateway backend")
         return;
@@ -66,8 +67,8 @@ exports.handler = function(event, context) {
 
     } else if (decodedJwt.payload.iss == auth0iss){
         //To be changed: Should be read from a property file
-        const url = "https://uat-qld-gov.au.auth0.com/tokeninfo";
-
+        const url = auth0iss + "/tokeninfo";
+                     
         //need to call Auth0 userinfo endpoint to validate jwt
         //see https://auth0.com/docs/api/authentication#user-profile
         request.post(
