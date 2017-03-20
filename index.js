@@ -12,7 +12,8 @@ var pems;
 
 exports.handler = function(event, context) {
 
-    console.log(event);
+    console.log("event type:" + event.type);
+    return;
 
     if (!event.type && event.type != "TOKEN") {
         console.log("Proxying call to API Gateway backend")
@@ -68,7 +69,7 @@ exports.handler = function(event, context) {
     } else if (decodedJwt.payload.iss == auth0iss){
         //To be changed: Should be read from a property file
         const url = auth0iss + "/tokeninfo";
-                     
+
         //need to call Auth0 userinfo endpoint to validate jwt
         //see https://auth0.com/docs/api/authentication#user-profile
         request.post(
