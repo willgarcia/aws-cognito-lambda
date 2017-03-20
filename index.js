@@ -12,9 +12,6 @@ var pems;
 
 exports.handler = function(event, context) {
 
-    console.log("event type:" + event.type);
-    return;
-
     if (!event.type && event.type != "TOKEN") {
         console.log("Proxying call to API Gateway backend")
         return;
