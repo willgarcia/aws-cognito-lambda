@@ -14,6 +14,10 @@ exports.handler = function(event, context) {
 
     console.log(context);
     console.log(event);
+    if (!event.type && event.type != "TOKEN") {
+        console.log("Proxying call to API Gateway backend")
+        return;
+    }
 
     var token = event.authorizationToken;
     var decodedJwt = jwt.decode(token, {complete: true});
