@@ -13,13 +13,14 @@ var pems;
 exports.handler = function(event, context) {
 
     console.log(context);
+    console.log(event);
 
     var token = event.authorizationToken;
     var decodedJwt = jwt.decode(token, {complete: true});
     //Fail if the token is not jwt
     if (!decodedJwt) {
         console.log("Not a valid JWT token");
-        context.fail("Unauthorized:Not a valid JWT token: " + token);
+        context.fail("Unauthorized:Not a valid JWT token");
         return;
     }
 
