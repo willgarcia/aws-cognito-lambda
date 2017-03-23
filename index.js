@@ -12,11 +12,6 @@ var pems;
 
 exports.handler = function(event, context) {
 
-    if (!event.type && event.type != "TOKEN") {
-        console.log("Proxying call to API Gateway backend")
-        return;
-    }
-
     var token = event.authorizationToken;
     var decodedJwt = jwt.decode(token, {complete: true});
     //Fail if the token is not jwt
