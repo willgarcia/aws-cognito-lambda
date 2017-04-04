@@ -12,8 +12,6 @@ var pems;
 
 exports.handler = function(event, context) {
 
-    console.log(event);
-
     var token = event.authorizationToken;
     var decodedJwt = jwt.decode(token, {complete: true});
     //Fail if the token is not jwt
